@@ -2,6 +2,9 @@ import time
 from typing import Optional
 import requests
 from requests import Response
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class FileServiceClient:
@@ -18,30 +21,57 @@ class FileServiceClient:
 
     def _request(self, method: str, url: str, **kwargs) -> Response:
         while True:
-            response = self.session.request(
-                method=method,
-                url=url,
-                **kwargs
-            )
+            try:
+                response = self.session.request(
+                    method=method,
+                    url=url,
+                    timeout=30,
+                    **kwargs
+                )
+            except requests.RequestException as e:
+                logger.error("Request failed: %s", e)
+                raise
 
             if response.status_code == 429:
                 retry_after = int(response.headers.get("Retry-After", 1))
-                print(f"Превышен лимит запросов. Ждем {retry_after} сек...")
+                logger.warning(
+                    "Rate limit exceeded. Waiting %s seconds.",
+                    retry_after
+                )
                 time.sleep(retry_after)
                 continue
 
+            if response.status_code == 403:
+                retry_after = response.headers.get("Retry-After")
+                logger.error(
+                    "Client blocked. Retry after %s seconds.",
+                    retry_after
+                )
+                raise RuntimeError(
+                    f"Клиент заблокирован. Повторите через {retry_after} секунд."
+                )
+
             response.raise_for_status()
+            logger.info(
+                "%s %s -> %s",
+                method,
+                url,
+                response.status_code
+            )
             return response
 
     def get_file_names(self) -> list[str]:
+        """Получить список файлов, ещё не скачанных кандидатом."""
         response = self._request(
             "GET",
             self.base_url + "/api/files/names")
-        data = response.json()
-        return data["file_names"]
+        return response.json()["file_names"]
 
 
     def download_files(self, file_names: list[str]) -> bytes:
+        """Скачать до трёх файлов одним ZIP-архивом."""
+        if len(file_names) > 3:
+            raise ValueError("Можно скачать не более 3 файлов за один запрос.")
         response = self._request(
             "POST",
             self.base_url + "/api/files/download",
@@ -70,13 +100,3 @@ if __name__ == '__main__':
         candidate_id = "1")
     files = client.get_file_names()
     zip_data = client.download_files(files[:3])
-
-    print(type(zip_data))
-    print(len(zip_data))
-    print(zip_data[:4])
-    print(client.session.headers)
-    result = client.mark_downloaded(files[:3])
-    print(result)
-
-    # print(files)
-
