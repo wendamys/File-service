@@ -1,5 +1,7 @@
+import time
 from typing import Optional
 import requests
+from requests import Response
 
 
 class FileServiceClient:
@@ -14,33 +16,50 @@ class FileServiceClient:
             self.session.headers["X-Candidate-Id"] = candidate_id
 
 
+    def _request(self, method: str, url: str, **kwargs) -> Response:
+        while True:
+            response = self.session.request(
+                method=method,
+                url=url,
+                **kwargs
+            )
+
+            if response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 1))
+                print(f"Превышен лимит запросов. Ждем {retry_after} сек...")
+                time.sleep(retry_after)
+                continue
+
+            response.raise_for_status()
+            return response
 
     def get_file_names(self) -> list[str]:
-        response = self.session.get(self.base_url + "/api/files/names")
-        response.raise_for_status()
+        response = self._request(
+            "GET",
+            self.base_url + "/api/files/names")
         data = response.json()
         return data["file_names"]
 
 
     def download_files(self, file_names: list[str]) -> bytes:
-        response = self.session.post(
+        response = self._request(
+            "POST",
             self.base_url + "/api/files/download",
             json={
                 "file_names": file_names
             }
         )
-        response.raise_for_status()
         return response.content
 
 
     def mark_downloaded(self, file_names: list[str]) -> dict[str, int]:
-        response = self.session.post(
+        response = self._request(
+            "POST",
             self.base_url + "/api/files/downloaded",
             json={
                 "file_names": file_names
             }
         )
-        response.raise_for_status()
         data = response.json()
         return data
 
