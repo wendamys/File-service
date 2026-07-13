@@ -4,7 +4,7 @@ import requests
 
 
 def make_response(status_code=200, json_data=None, headers=None, content=None):
-    """Build a real requests.Response so .json()/.raise_for_status() behave normally."""
+    """Настоящий requests.Response, чтобы .json()/.raise_for_status() вели себя как в бою."""
     response = requests.Response()
     response.status_code = status_code
     response.headers = requests.structures.CaseInsensitiveDict(headers or {})

@@ -25,13 +25,9 @@ _CATALOG_PATHS = ("/api/files/download", "/api/files/downloaded")
 
 
 def parse_retry_after(value: str | None, default: float = 1.0) -> float:
-    """Разобрать заголовок `Retry-After` в число секунд ожидания.
+    """Разобрать `Retry-After` в секунды ожидания: и число, и HTTP-дату.
 
-    Поддерживает целые и дробные секунды ("30", "1.5") и HTTP-дату
-    (RFC 7231, например "Wed, 21 Oct 2026 07:28:00 GMT") — тогда возвращается
-    разница в секундах до этой даты от текущего момента (не меньше 0).
-    Никогда не бросает исключение: любое невалидное значение или его
-    отсутствие даёт `default`.
+    Ничего не бросает: на пустое или битое значение возвращает `default`.
     """
     if value is None:
         return default
@@ -88,8 +84,7 @@ class FileServiceClient:
 
     def _backoff_delay(self, attempt: int) -> float:
         """Экспоненциальный backoff с full jitter, не более `_MAX_BACKOFF_DELAY`."""
-        base_delay = min(2 ** attempt, _MAX_BACKOFF_DELAY)
-        return random.uniform(0, base_delay)
+        return random.uniform(0, min(2 ** attempt, _MAX_BACKOFF_DELAY))
 
     @staticmethod
     def _is_catalog_path(url: str) -> bool:
@@ -111,8 +106,8 @@ class FileServiceClient:
         attempt = 0
         while True:
             attempt += 1
-            # Пауза выдерживается перед каждой попыткой, включая повторные:
-            # иначе ретраи сами по себе разгоняют частоту запросов до бана.
+            # Пауза нужна и перед повторной попыткой: иначе ретраи сами
+            # разгоняют частоту запросов до бана.
             self.rate_limiter.acquire()
 
             try:
@@ -163,7 +158,7 @@ class FileServiceClient:
                     "%s %s: клиент заблокирован на %s с, до %s",
                     method, url, retry_after, unblock_at,
                 )
-                # Не ретраим — решение, ждать ли разблокировки, принимает вызывающий код.
+                # Не ретраим: ждать ли разблокировки, решает вызывающий код.
                 raise ClientBlockedError(retry_after, unblock_at)
 
             if response.status_code == 404 and self._is_catalog_path(url):

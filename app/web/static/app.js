@@ -1,6 +1,5 @@
 // Vanilla JS для двух страниц веб-интерфейса. Без сборки, без внешних CDN.
 
-/** Показать сетевую/серверную ошибку пользователю (не проглатывать молча). */
 function showGlobalError(message) {
     let box = document.getElementById("global-error");
     if (!box) {
@@ -19,7 +18,7 @@ function clearGlobalError() {
     }
 }
 
-/** fetch с JSON-парсингом и понятной ошибкой при сетевом сбое/не-2xx ответе. */
+// fetch с разбором JSON и понятной ошибкой при сетевом сбое или не-2xx ответе.
 async function apiFetch(url, options) {
     let response;
     try {
@@ -34,7 +33,7 @@ async function apiFetch(url, options) {
         try {
             data = JSON.parse(text);
         } catch (e) {
-            data = null;
+            // Не JSON (например, страница ошибки) — ниже отработает по статусу.
         }
     }
 
@@ -48,9 +47,7 @@ async function apiFetch(url, options) {
     return data;
 }
 
-// ---------------------------------------------------------------------------
-// Страница "/" — запуск скачивания и опрос статуса.
-// ---------------------------------------------------------------------------
+// --- Страница "/": запуск скачивания и опрос статуса ---
 
 function startStatusPolling() {
     const startBtn = document.getElementById("start-btn");
@@ -136,9 +133,7 @@ function formatCountdown(remainingMs) {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-// ---------------------------------------------------------------------------
-// Страница "/files" — список, сортировка, пагинация, выбор и расчёты.
-// ---------------------------------------------------------------------------
+// --- Страница "/files": список, сортировка, пагинация, выбор и расчёты ---
 
 function initFilesPage() {
     const state = {
@@ -146,8 +141,7 @@ function initFilesPage() {
         perPage: 20,
         sort: "desc",
         total: 0,
-        // "ids" — точечный выбор (selectedNames), "page" — вся текущая страница,
-        // "all" — вообще все файлы (резолвится на бэкенде).
+        // "ids" — точечный выбор, "page" — вся страница, "all" — все файлы.
         selectionMode: "ids",
         selectedNames: new Set(),
     };
@@ -205,9 +199,7 @@ async function loadFiles(state) {
 
     state.total = data.total;
 
-    // Смена страницы/сортировки сбрасывает точечный выбор с предыдущей страницы —
-    // это осознанное упрощение для тестового задания (не накапливаем выбор
-    // между страницами в постоянном хранилище на фронте).
+    // Точечный выбор живёт в пределах страницы: смена страницы или сортировки его сбрасывает.
     if (state.selectionMode !== "all") {
         state.selectionMode = "ids";
         state.selectedNames.clear();
@@ -299,8 +291,7 @@ async function computeStats(state) {
     if (state.selectionMode === "all") {
         body = { mode: "all" };
     } else if (state.selectionMode === "page") {
-        // sort обязателен: без него бэкенд соберёт страницу в другом порядке,
-        // чем видит пользователь, и посчитает статистику не по тем файлам.
+        // sort обязателен: иначе бэкенд соберёт страницу в другом порядке и посчитает не те файлы.
         body = { mode: "page", page: state.page, per_page: state.perPage, sort: state.sort };
     } else {
         body = { mode: "ids", names: Array.from(state.selectedNames) };
@@ -356,8 +347,7 @@ function renderStats(result) {
     }
 }
 
-/** Собрать <tr> из значений. Через textContent, а не innerHTML: имя файла
- *  приходит с чужого сервера, склейка HTML из него — XSS. */
+// Только textContent: имена файлов приходят со стороннего сервера.
 function buildRow(values) {
     const tr = document.createElement("tr");
     for (const value of values) {

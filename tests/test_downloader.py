@@ -254,12 +254,8 @@ def test_stop_event_interrupts_wait_for_unblock(monkeypatch):
     storage.known_names.return_value = set()
     storage.unmarked_names.return_value = []
 
-    # stop_event.wait() имитируется: устанавливаем флаг после первого "тика" ожидания.
-    call_count = {"n": 0}
-    real_wait = stop_event.wait
-
+    # Флаг остановки взводится на первом же "тике" ожидания.
     def fake_wait(timeout=None):
-        call_count["n"] += 1
         stop_event.set()
         return True
 

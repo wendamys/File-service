@@ -84,7 +84,7 @@ def test_all_names(storage):
     storage.add_file("a.txt", size_bytes=500)
     storage.add_file("b.txt", size_bytes=500)
 
-    assert storage.all_names() == ["a.txt", "b.txt"] or set(storage.all_names()) == {"a.txt", "b.txt"}
+    assert sorted(storage.all_names()) == ["a.txt", "b.txt"]
 
 
 def test_backfill_from_disk(storage, tmp_path):

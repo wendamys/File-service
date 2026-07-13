@@ -15,7 +15,10 @@ def make_manager(download_all=None):
     downloader = Mock()
     if download_all is not None:
         downloader.download_all.side_effect = download_all
-    manager = JobManager(downloader_factory=lambda: downloader, storage=storage)
+    manager = JobManager(
+        downloader_factory=lambda stop_event, on_progress: downloader,
+        storage=storage,
+    )
     return manager, downloader, storage
 
 
@@ -33,15 +36,15 @@ def wait_until(predicate, timeout=2.0, interval=0.01):
 def test_start_returns_true_then_false_while_running():
     ready = threading.Event()
     release = threading.Event()
-    manager_holder = {}
+
+    manager, downloader, storage = make_manager()
 
     def download_all():
         ready.set()
         release.wait(timeout=2.0)
-        manager_holder["manager"]._on_progress({"event": "done"})
+        manager._on_progress({"event": "done"})
 
-    manager, downloader, storage = make_manager(download_all)
-    manager_holder["manager"] = manager
+    downloader.download_all.side_effect = download_all
 
     assert manager.start() is True
     ready.wait(timeout=2.0)
@@ -52,12 +55,14 @@ def test_start_returns_true_then_false_while_running():
 
 
 def test_start_returns_true_again_after_job_finishes():
-    # Реальный Downloader сам шлёт событие "done" перед нормальным завершением
-    # download_all() — имитируем это же поведение у мока.
+    # Реальный Downloader перед выходом из download_all() шлёт событие "done".
     storage = Mock()
     storage.count.return_value = 0
     downloader = Mock()
-    manager = JobManager(downloader_factory=lambda: downloader, storage=storage)
+    manager = JobManager(
+        downloader_factory=lambda stop_event, on_progress: downloader,
+        storage=storage,
+    )
     downloader.download_all.side_effect = lambda: manager._on_progress({"event": "done"})
 
     assert manager.start() is True
@@ -165,17 +170,12 @@ def test_stop_is_noop_when_not_running():
     manager.stop()  # не должно бросать исключений
 
 
-def test_stop_sets_stop_event_used_by_downloader_factory():
+def test_stop_sets_stop_event_passed_to_downloader_factory():
     seen_events = []
 
-    def factory():
-        downloader = Mock()
-
-        def download_all():
-            seen_events.append(manager.stop_event)
-
-        downloader.download_all.side_effect = download_all
-        return downloader
+    def factory(stop_event, on_progress):
+        seen_events.append(stop_event)
+        return Mock()
 
     storage = Mock()
     storage.count.return_value = 0

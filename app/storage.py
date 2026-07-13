@@ -25,7 +25,6 @@ class Storage:
                 cursor.close()
 
     def init_db(self) -> None:
-        """Создать таблицы, если их ещё нет."""
         Base.metadata.create_all(self.engine)
 
     def add_file(
@@ -35,25 +34,23 @@ class Storage:
         marked: bool = False,
         downloaded_at: datetime | None = None,
     ) -> None:
-        """Добавить запись о файле либо обновить существующую, не затирая downloaded_at."""
+        """Добавить запись о файле либо обновить существующую, не трогая downloaded_at."""
         with Session(self.engine) as session:
             existing = session.scalar(select(DownloadedFile).where(DownloadedFile.name == name))
             if existing is None:
-                record = DownloadedFile(
+                session.add(DownloadedFile(
                     name=name,
-                    downloaded_at=downloaded_at if downloaded_at is not None else utcnow(),
+                    downloaded_at=downloaded_at or utcnow(),
                     size_bytes=size_bytes,
                     marked=marked,
-                )
-                session.add(record)
+                ))
             else:
                 existing.size_bytes = size_bytes
-                # Не сбрасываем marked обратно в False повторным вызовом add_file.
+                # Повторный add_file(marked=False) не должен снимать отметку.
                 existing.marked = existing.marked or marked
             session.commit()
 
     def mark_files(self, names: list[str]) -> None:
-        """Отметить переданные файлы как marked=True."""
         if not names:
             return
         with Session(self.engine) as session:
@@ -63,9 +60,12 @@ class Storage:
             session.commit()
 
     def known_names(self) -> set[str]:
-        """Все имена файлов, уже присутствующие в таблице."""
         with Session(self.engine) as session:
             return set(session.scalars(select(DownloadedFile.name)).all())
+
+    def all_names(self) -> list[str]:
+        with Session(self.engine) as session:
+            return list(session.scalars(select(DownloadedFile.name)).all())
 
     def unmarked_names(self) -> list[str]:
         """Имена скачанных, но ещё не отмеченных на сервере файлов."""
@@ -75,13 +75,14 @@ class Storage:
             ).all())
 
     def list_files(self, page: int, per_page: int, sort: str) -> tuple[list[DownloadedFile], int]:
-        """Вернуть страницу файлов, отсортированных по downloaded_at, и общее количество."""
-        if sort == "asc":
-            order = DownloadedFile.downloaded_at.asc()
-        elif sort == "desc":
-            order = DownloadedFile.downloaded_at.desc()
-        else:
+        """Страница файлов, отсортированных по downloaded_at, и общее количество."""
+        if sort not in ("asc", "desc"):
             raise ValueError(f"Недопустимое значение sort: {sort!r}")
+        order = (
+            DownloadedFile.downloaded_at.asc()
+            if sort == "asc"
+            else DownloadedFile.downloaded_at.desc()
+        )
 
         with Session(self.engine) as session:
             total = session.scalar(select(func.count()).select_from(DownloadedFile)) or 0
@@ -93,18 +94,12 @@ class Storage:
             ).all()
             return list(rows), total
 
-    def all_names(self) -> list[str]:
-        """Все имена файлов в таблице."""
-        with Session(self.engine) as session:
-            return list(session.scalars(select(DownloadedFile.name)).all())
-
     def count(self) -> int:
-        """Общее количество записей в таблице."""
         with Session(self.engine) as session:
             return session.scalar(select(func.count()).select_from(DownloadedFile)) or 0
 
     def backfill_from_disk(self, downloads_dir: Path) -> int:
-        """Добавить в БД файлы с диска, отсутствующие в таблице (после сбоя/переезда)."""
+        """Добавить в БД файлы, которые есть на диске, но потерялись в таблице."""
         known = self.known_names()
         added = 0
         for path in sorted(downloads_dir.glob("*.txt")):
@@ -123,17 +118,14 @@ class Storage:
         return added
 
     def prune_missing(self, downloads_dir: Path) -> int:
-        """Удалить из БД записи о файлах, которых больше нет на диске.
+        """Удалить записи о файлах, которых больше нет на диске.
 
-        Содержимое на диске — источник истины, БД лишь индекс над ним. Без
-        этой сверки удалённые вручную файлы навсегда остаются в выдаче и
-        ломают расчёты. Побочный эффект полезен: неотмеченные записи после
-        удаления снова попадут в выдачу имён сервера и будут перескачаны.
+        Иначе удалённые вручную файлы навсегда остаются в выдаче и ломают
+        расчёты. Неотмеченные записи после удаления снова придут в списке имён
+        от сервера и будут перекачаны.
         """
         if not downloads_dir.is_dir():
-            logger.warning(
-                "Директория %s недоступна — сверка с диском пропущена", downloads_dir
-            )
+            logger.warning("Директория %s недоступна — сверка с диском пропущена", downloads_dir)
             return 0
 
         on_disk = {path.name for path in downloads_dir.glob("*.txt")}

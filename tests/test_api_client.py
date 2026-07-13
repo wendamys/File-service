@@ -48,11 +48,10 @@ def test_parse_retry_after_garbage_returns_default():
 
 def test_parse_retry_after_never_raises():
     for garbage in ["", "   ", "abc", "1,5", "Mon, 32 Foo 2026", None, "NaN", "-"]:
-        # Не должно бросать исключений ни при каких обстоятельствах.
         parse_retry_after(garbage)
 
 
-# --- fixtures ----------------------------------------------------------------
+# --- клиент ------------------------------------------------------------------
 
 def make_client(**overrides):
     params = dict(
@@ -78,7 +77,7 @@ def test_no_candidate_id_no_header():
     assert "X-Candidate-Id" not in client.session.headers
 
 
-# --- happy paths -----------------------------------------------------------
+# --- успешные сценарии -------------------------------------------------------
 
 def test_get_file_names_returns_list(monkeypatch):
     client = make_client()
@@ -119,7 +118,7 @@ def test_mark_downloaded_returns_dict(monkeypatch):
     assert client.mark_downloaded(["a.txt", "b.txt"]) == {"marked_now": 2, "already_marked": 0}
 
 
-# --- 429 handling ------------------------------------------------------------
+# --- 429 ---------------------------------------------------------------------
 
 def test_request_retries_on_429_then_succeeds():
     client = make_client(max_retries=5)
@@ -148,13 +147,13 @@ def test_request_429_without_retry_after_exhausts_retries_raises_rate_limited():
     with pytest.raises(RateLimitedError):
         client.get_file_names()
 
-    assert mock_request.call_count == 3  # initial + 2 retries
+    assert mock_request.call_count == 3  # первая попытка + 2 ретрая
     assert client.sleep.call_count == 2
     for (waited,), _ in client.sleep.call_args_list:
         assert waited > 0
 
 
-# --- 403 handling ------------------------------------------------------------
+# --- 403 ---------------------------------------------------------------------
 
 def test_request_raises_client_blocked_error_on_403_without_retrying():
     client = make_client(max_retries=5)
@@ -182,7 +181,7 @@ def test_request_403_without_retry_after_uses_thirty_minute_default():
     assert exc_info.value.retry_after == 1800.0
 
 
-# --- 404 on catalog endpoints ------------------------------------------------
+# --- 404 на ручках каталога ---------------------------------------------------
 
 def test_download_files_404_raises_file_not_found_in_catalog():
     client = make_client()
@@ -198,7 +197,7 @@ def test_download_files_404_raises_file_not_found_in_catalog():
     assert mock_request.call_count == 1  # 404 не ретраится
 
 
-# --- 5xx handling -------------------------------------------------------------
+# --- 5xx ----------------------------------------------------------------------
 
 def test_request_raises_http_error_for_server_error_after_retries():
     client = make_client(max_retries=2)
@@ -208,7 +207,7 @@ def test_request_raises_http_error_for_server_error_after_retries():
     with pytest.raises(requests.HTTPError):
         client.get_file_names()
 
-    assert mock_request.call_count == 3  # initial + 2 retries
+    assert mock_request.call_count == 3  # первая попытка + 2 ретрая
     assert client.sleep.call_count == 2
 
 
@@ -225,7 +224,7 @@ def test_request_recovers_after_transient_server_error():
     assert mock_request.call_count == 2
 
 
-# --- network errors ------------------------------------------------------------
+# --- сетевые ошибки -----------------------------------------------------------
 
 def test_request_propagates_connection_error_after_retries_exhausted():
     client = make_client(max_retries=2)
@@ -235,7 +234,7 @@ def test_request_propagates_connection_error_after_retries_exhausted():
     with pytest.raises(requests.ConnectionError):
         client.get_file_names()
 
-    assert mock_request.call_count == 3  # initial + 2 retries
+    assert mock_request.call_count == 3  # первая попытка + 2 ретрая
 
 
 def test_request_recovers_after_transient_connection_error():
@@ -252,7 +251,7 @@ def test_request_recovers_after_transient_connection_error():
     assert mock_request.call_count == 2
 
 
-# --- rate limiter integration (proactive throttling) --------------------------
+# --- связка с троттлингом -----------------------------------------------------
 
 def test_acquire_called_before_every_attempt_including_retries():
     client = make_client(max_retries=5)

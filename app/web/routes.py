@@ -1,6 +1,6 @@
 """HTTP-роуты: две HTML-страницы и JSON API под ними.
 
-Зависимости лежат в `request.app.state` — их кладёт туда `create_app()`.
+Зависимости берутся из `request.app.state`, куда их кладёт `create_app()`.
 """
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -15,29 +15,24 @@ router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request) -> HTMLResponse:
-    templates = request.app.state.templates
-    return templates.TemplateResponse(request, "index.html", {})
+    return request.app.state.templates.TemplateResponse(request, "index.html", {})
 
 
 @router.get("/files", response_class=HTMLResponse)
 def files_page(request: Request) -> HTMLResponse:
-    templates = request.app.state.templates
-    return templates.TemplateResponse(request, "files.html", {})
+    return request.app.state.templates.TemplateResponse(request, "files.html", {})
 
 
 @router.post("/api/download/start")
 def download_start(request: Request) -> JSONResponse:
-    manager = request.app.state.manager
-    started = manager.start()
-    if not started:
+    if not request.app.state.manager.start():
         raise HTTPException(status_code=409, detail="Скачивание уже запущено.")
     return JSONResponse(status_code=202, content={"detail": "Скачивание запущено."})
 
 
 @router.post("/api/download/stop")
 def download_stop(request: Request) -> JSONResponse:
-    manager = request.app.state.manager
-    manager.stop()
+    request.app.state.manager.stop()
     return JSONResponse(status_code=202, content={"detail": "Остановка запрошена."})
 
 

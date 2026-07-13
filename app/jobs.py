@@ -12,10 +12,12 @@ from app.timeutils import format_nsk, utcnow
 
 logger = get_logger(__name__)
 
-# Сколько последних строк лога хранить в JobState.
 _LOG_TAIL = 50
 
 JobStatus = Literal["idle", "running", "blocked", "done", "failed", "cancelled"]
+
+# Собирает Downloader, привязанный к переданным stop_event и колбэку прогресса.
+DownloaderFactory = Callable[[threading.Event, Callable[[dict], None]], Downloader]
 
 
 @dataclass
@@ -25,10 +27,9 @@ class JobState:
     status: JobStatus = "idle"
     started_at: datetime | None = None
     names_received: int = 0
-    # Скачано в рамках последней обработанной порции (не накопительно
-    # по всем порциям) — см. событие "downloaded" в `Downloader`.
+    # Скачано в рамках последней порции, а не накопительно по всем.
     downloaded: int = 0
-    # Всего файлов в БД (накопительно, по всем порциям и запускам).
+    # Всего файлов в БД: накопительно, по всем порциям и запускам.
     total_downloaded: int = 0
     unblock_at: datetime | None = None
     last_error: str | None = None
@@ -38,7 +39,7 @@ class JobState:
 class JobManager:
     """Запускает `Downloader.download_all()` в фоновом потоке и следит за его статусом."""
 
-    def __init__(self, downloader_factory: Callable[[], Downloader], storage: Storage):
+    def __init__(self, downloader_factory: DownloaderFactory, storage: Storage):
         self.downloader_factory = downloader_factory
         self.storage = storage
         self.stop_event: threading.Event | None = None
@@ -48,24 +49,21 @@ class JobManager:
         self._thread: threading.Thread | None = None
 
     def start(self) -> bool:
-        """Запустить job, если он ещё не идёт. Возвращает False, если уже running/blocked."""
+        """Запустить job. Возвращает False, если он уже идёт."""
         with self._lock:
             if self._state.status in ("running", "blocked"):
                 return False
             self.stop_event = threading.Event()
             self._state = JobState(status="running", started_at=utcnow())
 
-        # Фабрика вызывается уже после того, как выставлен свежий stop_event,
-        # поэтому созданный Downloader получит именно его, а не событие с прошлого запуска.
-        downloader = self.downloader_factory()
-        thread = threading.Thread(target=self._run, args=(downloader,), daemon=True)
-        self._thread = thread
-        thread.start()
+        downloader = self.downloader_factory(self.stop_event, self._on_progress)
+        self._thread = threading.Thread(target=self._run, args=(downloader,), daemon=True)
+        self._thread.start()
         logger.info("Job запущен")
         return True
 
     def stop(self) -> None:
-        """Попросить job остановиться. Если job не запущен — не делает ничего."""
+        """Попросить job остановиться. Если он не запущен — ничего не делает."""
         if self.stop_event is not None:
             logger.info("Запрошена остановка job'а")
             self.stop_event.set()
@@ -76,7 +74,6 @@ class JobManager:
             return replace(self._state, log=list(self._state.log))
 
     def _run(self, downloader: Downloader) -> None:
-        """Тело фонового потока: гоняет `download_all()` и фиксирует итог."""
         try:
             downloader.download_all()
         except Exception as e:
@@ -88,16 +85,15 @@ class JobManager:
             return
 
         with self._lock:
-            # download_all() завершается без исключения и в случае штатного
-            # окончания (событие "done" уже перевело статус в "done"),
-            # и в случае остановки по stop_event (событие "done" не пришло) —
-            # тогда статус ещё "running"/"blocked", и это отличаем по флагу.
+            # download_all() выходит без исключения и когда каталог скачан целиком
+            # (событие "done" уже перевело статус), и когда сработал stop_event —
+            # во втором случае статус так и остался "running"/"blocked".
             if self._state.status != "done" and self.stop_event is not None and self.stop_event.is_set():
                 self._state.status = "cancelled"
                 self._append_log("Job остановлен пользователем")
 
     def _on_progress(self, event: dict) -> None:
-        """Callback для `Downloader`: обновляет `JobState` под локом по типу события."""
+        """Колбэк для `Downloader`: обновляет `JobState` под локом."""
         kind = event.get("event")
         with self._lock:
             if kind == "names_received":
@@ -128,7 +124,7 @@ class JobManager:
                 logger.warning("Неизвестное событие прогресса: %s", kind)
 
     def _append_log(self, message: str) -> None:
-        """Добавить строку в лог, храня не более `_LOG_TAIL` последних записей. Вызывать под self._lock."""
+        """Вызывать под self._lock."""
         self._state.log.append(message)
         if len(self._state.log) > _LOG_TAIL:
             self._state.log = self._state.log[-_LOG_TAIL:]

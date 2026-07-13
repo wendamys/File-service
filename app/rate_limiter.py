@@ -8,12 +8,10 @@ logger = get_logger(__name__)
 
 
 class RateLimiter:
-    """Проактивный троттлинг запросов: не даёт превысить допустимую частоту.
+    """Проактивный троттлинг запросов по схеме AIMD.
 
-    Помимо равномерной паузы между вызовами (`acquire`), умеет адаптивно
-    увеличивать интервал при 429 (`penalize`) и постепенно уменьшать его
-    обратно после серии успешных ответов (`reward`), но не ниже базового
-    значения, заданного при создании.
+    `acquire` выдерживает паузу между запросами, `penalize` увеличивает её на
+    429, `reward` после серии успехов плавно возвращает к базовой.
     """
 
     def __init__(
@@ -47,11 +45,10 @@ class RateLimiter:
     def acquire(self) -> None:
         """Дождаться, пока с прошлого запроса пройдёт не меньше `interval` секунд."""
         with self._lock:
-            now = self._monotonic()
             if self._last_request_at is None:
                 wait_for = 0.0
             else:
-                elapsed = now - self._last_request_at
+                elapsed = self._monotonic() - self._last_request_at
                 wait_for = max(0.0, self._interval - elapsed)
 
         if wait_for > 0:
@@ -61,7 +58,7 @@ class RateLimiter:
             self._last_request_at = self._monotonic()
 
     def penalize(self) -> None:
-        """Увеличить интервал после 429, сбросив накопленный прогресс `reward`."""
+        """Увеличить интервал после 429, сбросив прогресс, накопленный `reward`."""
         with self._lock:
             new_interval = min(
                 self._interval * self._backoff_factor,

@@ -37,19 +37,18 @@ class FakeDownloader:
     """Имитация `Downloader`, не бьющая по реальному внешнему API.
 
     Блокируется на `release` (сигнализируя о старте через `ready`), затем
-    эмулирует штатное завершение job'а событием "done" — так же, как это
-    делают моки в `tests/test_jobs.py`.
+    эмулирует штатное завершение job'а событием "done".
     """
 
-    def __init__(self, manager, ready, release):
-        self.manager = manager
+    def __init__(self, on_progress, ready, release):
+        self.on_progress = on_progress
         self.ready = ready
         self.release = release
 
     def download_all(self):
         self.ready.set()
         self.release.wait(timeout=2.0)
-        self.manager._on_progress({"event": "done"})
+        self.on_progress({"event": "done"})
 
 
 def wait_until(predicate, timeout=2.0, interval=0.01):
@@ -83,7 +82,9 @@ def test_download_start_conflict_then_stop(app_client):
     manager = app.state.manager
     ready = threading.Event()
     release = threading.Event()
-    manager.downloader_factory = lambda: FakeDownloader(manager, ready, release)
+    manager.downloader_factory = lambda stop_event, on_progress: FakeDownloader(
+        on_progress, ready, release
+    )
 
     resp = client.post("/api/download/start")
     assert resp.status_code == 202
