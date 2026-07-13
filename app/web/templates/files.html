@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Файлы — File Service{% endblock %}
+
+{% block content %}
+<h1>Скачанные файлы</h1>
+
+<div class="controls">
+    <button id="select-all-everywhere" type="button">Выбрать вообще все</button>
+    <button id="clear-selection" type="button">Снять выбор</button>
+    <button id="compute-btn" type="button">Произвести расчёты</button>
+    <span id="selection-summary"></span>
+</div>
+
+<table class="files-table">
+    <thead>
+        <tr>
+            <th><input type="checkbox" id="select-page-checkbox"></th>
+            <th>Имя файла</th>
+            <th>
+                <button id="sort-toggle" type="button" class="link-btn">
+                    Время скачивания (НСК) <span id="sort-arrow">&#9660;</span>
+                </button>
+            </th>
+        </tr>
+    </thead>
+    <tbody id="files-tbody">
+    </tbody>
+</table>
+
+<div class="pagination" id="pagination">
+</div>
+
+<section id="stats-section" class="hidden">
+    <h2>Результаты расчётов</h2>
+
+    <div id="stats-skipped" class="hidden">
+        <h3>Пропущенные файлы</h3>
+        <ul id="skipped-list"></ul>
+    </div>
+
+    <h3>Общая статистика по цифрам</h3>
+    <table class="stats-table" id="total-stats-table">
+        <thead>
+            <tr><th>Цифра</th><th>Количество</th><th>Доля</th></tr>
+        </thead>
+        <tbody id="total-stats-body"></tbody>
+    </table>
+
+    <h3>Статистика по файлам</h3>
+    <div class="table-scroll">
+        <table class="stats-table" id="per-file-stats-table">
+            <thead>
+                <tr>
+                    <th>Файл</th>
+                    <th>0</th><th>1</th><th>2</th><th>3</th><th>4</th>
+                    <th>5</th><th>6</th><th>7</th><th>8</th><th>9</th>
+                    <th>Итого</th>
+                </tr>
+            </thead>
+            <tbody id="per-file-stats-body"></tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/app.js"></script>
+<script>initFilesPage();</script>
+{% endblock %}

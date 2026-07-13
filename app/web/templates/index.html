@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Скачивание — File Service{% endblock %}
+
+{% block content %}
+<h1>Скачивание каталога</h1>
+
+<div class="controls">
+    <button id="start-btn" type="button">Скачать данные</button>
+    <button id="stop-btn" type="button">Стоп</button>
+</div>
+
+<section class="status-box">
+    <p>Статус: <span id="status-text">-</span></p>
+    <p>Старт процесса (НСК): <span id="started-at">-</span></p>
+    <p id="progress-line">получено <span id="names-received">0</span> названий файлов,
+        скачано <span id="downloaded">0</span> из <span id="total-in-batch">0</span></p>
+
+    <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill" style="width: 0%;"></div>
+    </div>
+
+    <p id="blocked-line" class="hidden">Заблокирован сервером до <span id="unblock-at">-</span> (НСК),
+        осталось <span id="unblock-countdown">-</span></p>
+
+    <p id="error-line" class="hidden error">Ошибка: <span id="error-text">-</span></p>
+
+    <h2>Журнал</h2>
+    <pre id="log-box" class="log-box"></pre>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/app.js"></script>
+<script>startStatusPolling();</script>
+{% endblock %}
