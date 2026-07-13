@@ -3,21 +3,27 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+Sort = Literal["asc", "desc"]
 
 
 class SelectionRequest(BaseModel):
     """Тело запроса `POST /api/stats` — какие файлы выбрал пользователь.
 
     - "ids" — точечный выбор, имена перечислены в `names`.
-    - "page" — все файлы текущей страницы (`page`/`per_page` резолвятся на бэкенде).
+    - "page" — все файлы текущей страницы (резолвятся на бэкенде).
     - "all" — вообще все скачанные файлы.
+
+    Для режима "page" нужна не только страница, но и сортировка: без неё
+    бэкенд собрал бы страницу в другом порядке, чем видел пользователь.
     """
 
     mode: Literal["ids", "page", "all"]
     names: list[str] = []
-    page: int = 1
-    per_page: int = 20
+    page: int = Field(default=1, ge=1)
+    per_page: int = Field(default=20, ge=1, le=100)
+    sort: Sort = "desc"
 
 
 class FileItem(BaseModel):

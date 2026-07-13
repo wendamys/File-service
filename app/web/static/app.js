@@ -299,7 +299,9 @@ async function computeStats(state) {
     if (state.selectionMode === "all") {
         body = { mode: "all" };
     } else if (state.selectionMode === "page") {
-        body = { mode: "page", page: state.page, per_page: state.perPage };
+        // sort обязателен: без него бэкенд соберёт страницу в другом порядке,
+        // чем видит пользователь, и посчитает статистику не по тем файлам.
+        body = { mode: "page", page: state.page, per_page: state.perPage, sort: state.sort };
     } else {
         body = { mode: "ids", names: Array.from(state.selectedNames) };
     }

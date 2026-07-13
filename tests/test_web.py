@@ -201,6 +201,22 @@ def test_stats_mode_page(app_client):
     assert len(data["files"]) == 2
 
 
+def test_stats_mode_page_respects_sort(app_client):
+    """Страница для расчёта должна собираться в том же порядке, что видит пользователь."""
+    client, app = app_client
+    storage = app.state.storage
+    downloads_dir = app.state.settings.downloads_dir
+    _seed_files(storage, count=3)
+    for i in range(3):
+        (downloads_dir / f"file{i}.txt").write_text("5", encoding="utf-8")
+
+    asc = client.post("/api/stats", json={"mode": "page", "page": 1, "per_page": 2, "sort": "asc"})
+    desc = client.post("/api/stats", json={"mode": "page", "page": 1, "per_page": 2, "sort": "desc"})
+
+    assert [f["name"] for f in asc.json()["files"]] == ["file0.txt", "file1.txt"]
+    assert [f["name"] for f in desc.json()["files"]] == ["file2.txt", "file1.txt"]
+
+
 def test_stats_empty_ids_returns_422(app_client):
     client, _ = app_client
     resp = client.post("/api/stats", json={"mode": "ids", "names": []})
