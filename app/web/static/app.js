@@ -332,10 +332,12 @@ function renderStats(result) {
 
     const totalBody = document.getElementById("total-stats-body");
     totalBody.innerHTML = "";
-    const totalChars = result.total_chars || 0;
+    // Доля цифры среди всех цифр выборки, а не среди всех символов: так
+    // результат не зависит от переносов строк и прочего мусора в файле.
+    const totalDigits = Object.values(result.total_counts).reduce((sum, n) => sum + n, 0);
     for (const digit of "0123456789") {
         const count = result.total_counts[digit] || 0;
-        const percent = totalChars > 0 ? ((count / totalChars) * 100).toFixed(2) : "0.00";
+        const percent = totalDigits > 0 ? ((count / totalDigits) * 100).toFixed(2) : "0.00";
         totalBody.appendChild(buildRow([digit, count, `${percent}%`]));
     }
 
