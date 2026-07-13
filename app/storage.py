@@ -119,7 +119,7 @@ class Storage:
             )
             added += 1
         if added:
-            logger.info("Backfilled %s file(s) from disk into DB", added)
+            logger.info("Добавлено в БД %s файлов, найденных на диске", added)
         return added
 
     def prune_missing(self, downloads_dir: Path) -> int:

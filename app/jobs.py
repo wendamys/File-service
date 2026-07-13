@@ -1,32 +1,4 @@
-"""Управление фоновым job'ом скачивания каталога — мост между `Downloader` и веб-слоем.
-
-`JobManager` держит единственный активный `Downloader` в фоновом потоке,
-пробрасывает его прогресс (`on_progress`) в потокобезопасный `JobState`
-и даёт HTTP-роутам (FastAPI) дёшево читать снимок состояния и просить
-об остановке (`stop()`), не блокируясь на фоновом потоке.
-
-Про связывание `stop_event`/`on_progress` с `Downloader`: по контракту
-`downloader_factory` — это `Callable[[], Downloader]` без аргументов,
-поэтому конкретный `Downloader` должен сам знать, с каким `stop_event`
-и `on_progress` его создавать. Решение: `JobManager` перед каждым запуском
-кладёт новый `threading.Event()` в публичный атрибут `self.stop_event`,
-а вызывающий код собирает фабрику как замыкание над уже существующим
-менеджером, например:
-
-    manager = JobManager(storage=storage, downloader_factory=lambda: None)
-    manager.downloader_factory = lambda: Downloader(
-        client, extractor, storage,
-        on_progress=manager._on_progress,
-        stop_event=manager.stop_event,
-    )
-
-(или эквивалентно — определить `manager` заранее через `variable`,
-захватываемую по ссылке в `lambda`, что работает, так как тело `lambda`
-выполняется лишь в момент вызова `start()`, когда `manager` уже создан).
-К моменту вызова `downloader_factory()` внутри `start()` атрибут
-`self.stop_event` уже переприсвоен свежим `Event`, так что фабрика
-всегда видит актуальный `stop_event` текущего запуска.
-"""
+"""Фоновый job скачивания: мост между `Downloader` и веб-слоем."""
 
 import threading
 from dataclasses import dataclass, field, replace
@@ -83,6 +55,8 @@ class JobManager:
             self.stop_event = threading.Event()
             self._state = JobState(status="running", started_at=utcnow())
 
+        # Фабрика вызывается уже после того, как выставлен свежий stop_event,
+        # поэтому созданный Downloader получит именно его, а не событие с прошлого запуска.
         downloader = self.downloader_factory()
         thread = threading.Thread(target=self._run, args=(downloader,), daemon=True)
         self._thread = thread

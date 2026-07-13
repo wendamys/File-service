@@ -44,7 +44,7 @@ class ZipExtractor:
 
                     extracted.append((safe_name, len(data)))
         except zipfile.BadZipFile as e:
-            logger.error("Corrupted zip archive: %s", e)
+            logger.error("Повреждённый ZIP-архив: %s", e)
             raise
         return extracted
 

@@ -70,7 +70,7 @@ class RateLimiter:
             self._consecutive_successes = 0
             if new_interval != self._interval:
                 logger.info(
-                    "Rate limit: interval increased %.3f -> %.3f",
+                    "Интервал между запросами увеличен: %.2f -> %.2f с",
                     self._interval,
                     new_interval,
                 )
@@ -90,7 +90,7 @@ class RateLimiter:
             )
             if new_interval != self._interval:
                 logger.info(
-                    "Rate limit: interval decreased %.3f -> %.3f",
+                    "Интервал между запросами снижен: %.2f -> %.2f с",
                     self._interval,
                     new_interval,
                 )

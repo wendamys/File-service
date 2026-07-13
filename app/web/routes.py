@@ -1,20 +1,14 @@
-"""HTTP-роуты веб-интерфейса: две HTML-страницы и JSON API под ними.
+"""HTTP-роуты: две HTML-страницы и JSON API под ними.
 
-Зависимости (`Storage`, `JobManager`, `Settings`, `Jinja2Templates`) читаются
-из `request.app.state` — их кладёт туда `create_app()` (см. `app/main.py`).
-Такой подход выбран вместо отдельного DI-фреймворка как самый простой
-для приложения с одним набором синглтонов на процесс.
+Зависимости лежат в `request.app.state` — их кладёт туда `create_app()`.
 """
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from app.logger import get_logger
 from app.schemas import SelectionRequest
 from app.stats import calculate
 from app.timeutils import format_nsk
-
-logger = get_logger(__name__)
 
 router = APIRouter()
 

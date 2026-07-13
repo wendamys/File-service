@@ -1,7 +1,4 @@
-"""Фабрика FastAPI-приложения: связывает веб-слой со всеми ранее написанными модулями.
-
-Запуск: `uvicorn app.main:app`.
-"""
+"""Фабрика FastAPI-приложения. Запуск: `uvicorn app.main:app`."""
 
 from pathlib import Path
 
@@ -48,11 +45,8 @@ def create_app() -> FastAPI:
     )
     extractor = ZipExtractor(output_dir=settings.downloads_dir)
 
-    # См. докстринг `app/jobs.py`: downloader_factory должен читать
-    # manager.stop_event НА МОМЕНТ вызова (внутри тела лямбды), а не захватывать
-    # его значение заранее — поэтому сначала создаём manager с временной
-    # заглушкой, а затем переопределяем downloader_factory замыканием над уже
-    # существующим manager.
+    # Фабрика должна читать manager.stop_event в момент вызова, а не при объявлении:
+    # на каждый запуск job'а создаётся новое событие остановки.
     manager = JobManager(storage=storage, downloader_factory=lambda: None)
     manager.downloader_factory = lambda: Downloader(
         client,

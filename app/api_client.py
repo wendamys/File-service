@@ -1,11 +1,4 @@
-"""HTTP-клиент API сервиса файлов.
-
-Переработка старого корневого `client.py`: добавлены проактивный троттлинг
-через `RateLimiter`, ограниченные ретраи с экспоненциальным backoff и full
-jitter, корректный разбор `Retry-After` и разделение ошибок 429 (можно
-повторить) и 403 (клиент заблокирован — решение о дальнейших действиях
-остаётся за вызывающим кодом, например `downloader.py`).
-"""
+"""HTTP-клиент API сервиса файлов: троттлинг, ретраи и разбор ошибок 429/403."""
 
 import random
 import time
@@ -118,8 +111,8 @@ class FileServiceClient:
         attempt = 0
         while True:
             attempt += 1
-            # Троттлинг перед КАЖДОЙ попыткой, включая повторные —
-            # именно это защищает от 30-минутного бана за долбёжку API.
+            # Пауза выдерживается перед каждой попыткой, включая повторные:
+            # иначе ретраи сами по себе разгоняют частоту запросов до бана.
             self.rate_limiter.acquire()
 
             try:
@@ -132,13 +125,13 @@ class FileServiceClient:
             except requests.RequestException as e:
                 if attempt > self.max_retries:
                     logger.error(
-                        "Request %s %s failed after %s attempts: %s",
+                        "%s %s: сетевая ошибка, попытки исчерпаны (%s): %s",
                         method, url, attempt, e,
                     )
                     raise
                 delay = self._backoff_delay(attempt)
                 logger.warning(
-                    "Request %s %s failed (attempt %s/%s): %s. Retrying in %.2fs",
+                    "%s %s: сетевая ошибка (попытка %s/%s): %s. Повтор через %.2f с",
                     method, url, attempt, self.max_retries, e, delay,
                 )
                 self.sleep(delay)
@@ -149,13 +142,13 @@ class FileServiceClient:
                 retry_after = parse_retry_after(response.headers.get("Retry-After"))
                 if attempt > self.max_retries:
                     logger.error(
-                        "Rate limited on %s %s after %s attempts, giving up",
+                        "%s %s: лимит частоты, попытки исчерпаны (%s)",
                         method, url, attempt,
                     )
                     raise RateLimitedError(retry_after)
                 wait = retry_after + random.uniform(0, 1)
                 logger.warning(
-                    "Rate limit exceeded on %s %s (attempt %s/%s). Waiting %.2fs",
+                    "%s %s: превышена частота запросов (попытка %s/%s). Ожидание %.2f с",
                     method, url, attempt, self.max_retries, wait,
                 )
                 self.sleep(wait)
@@ -167,7 +160,7 @@ class FileServiceClient:
                 )
                 unblock_at = utcnow() + timedelta(seconds=retry_after)
                 logger.error(
-                    "Client blocked by server on %s %s. Retry after %s seconds (until %s)",
+                    "%s %s: клиент заблокирован на %s с, до %s",
                     method, url, retry_after, unblock_at,
                 )
                 # Не ретраим — решение, ждать ли разблокировки, принимает вызывающий код.
@@ -175,20 +168,20 @@ class FileServiceClient:
 
             if response.status_code == 404 and self._is_catalog_path(url):
                 detail = self._extract_detail(response)
-                logger.error("File(s) not found in catalog on %s %s: %s", method, url, detail)
+                logger.error("%s %s: файлы отсутствуют в каталоге: %s", method, url, detail)
                 raise FileNotFoundInCatalogError(detail)
 
             if response.status_code >= 500:
                 if attempt > self.max_retries:
                     logger.error(
-                        "Server error %s on %s %s after %s attempts, giving up",
-                        response.status_code, method, url, attempt,
+                        "%s %s: ошибка сервера %s, попытки исчерпаны (%s)",
+                        method, url, response.status_code, attempt,
                     )
                     response.raise_for_status()
                 delay = self._backoff_delay(attempt)
                 logger.warning(
-                    "Server error %s on %s %s (attempt %s/%s). Retrying in %.2fs",
-                    response.status_code, method, url, attempt, self.max_retries, delay,
+                    "%s %s: ошибка сервера %s (попытка %s/%s). Повтор через %.2f с",
+                    method, url, response.status_code, attempt, self.max_retries, delay,
                 )
                 self.sleep(delay)
                 continue
