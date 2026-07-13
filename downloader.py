@@ -1,3 +1,5 @@
+import time
+
 from client import FileServiceClient, logger
 from zip_extractor import ZipExtractor
 
@@ -28,3 +30,4 @@ class Downloader:
                 logger.info("Extracted: %s", extracted)
                 result = self.client.mark_downloaded(batch)
                 logger.info("Marked: %s", result)
+                time.sleep(2)
