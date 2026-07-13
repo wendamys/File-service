@@ -345,21 +345,25 @@ function renderStats(result) {
     for (const digit of "0123456789") {
         const count = result.total_counts[digit] || 0;
         const percent = totalChars > 0 ? ((count / totalChars) * 100).toFixed(2) : "0.00";
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${digit}</td><td>${count}</td><td>${percent}%</td>`;
-        totalBody.appendChild(tr);
+        totalBody.appendChild(buildRow([digit, count, `${percent}%`]));
     }
 
     const perFileBody = document.getElementById("per-file-stats-body");
     perFileBody.innerHTML = "";
     for (const file of result.files) {
-        const tr = document.createElement("tr");
-        let cells = `<td>${file.name}</td>`;
-        for (const digit of "0123456789") {
-            cells += `<td>${file.counts[digit] || 0}</td>`;
-        }
-        cells += `<td>${file.total}</td>`;
-        tr.innerHTML = cells;
-        perFileBody.appendChild(tr);
+        const digits = Array.from("0123456789", (d) => file.counts[d] || 0);
+        perFileBody.appendChild(buildRow([file.name, ...digits, file.total]));
     }
+}
+
+/** Собрать <tr> из значений. Через textContent, а не innerHTML: имя файла
+ *  приходит с чужого сервера, склейка HTML из него — XSS. */
+function buildRow(values) {
+    const tr = document.createElement("tr");
+    for (const value of values) {
+        const td = document.createElement("td");
+        td.textContent = value;
+        tr.appendChild(td);
+    }
+    return tr;
 }

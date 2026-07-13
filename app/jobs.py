@@ -8,7 +8,7 @@ from typing import Callable, Literal
 from app.downloader import Downloader
 from app.logger import get_logger
 from app.storage import Storage
-from app.timeutils import utcnow
+from app.timeutils import format_nsk, utcnow
 
 logger = get_logger(__name__)
 
@@ -84,7 +84,7 @@ class JobManager:
             with self._lock:
                 self._state.status = "failed"
                 self._state.last_error = str(e)
-                self._append_log(f"Job failed: {e}")
+                self._append_log(f"Скачивание прервано ошибкой: {e}")
             return
 
         with self._lock:
@@ -110,7 +110,9 @@ class JobManager:
             elif kind == "blocked":
                 self._state.status = "blocked"
                 self._state.unblock_at = event.get("unblock_at")
-                self._append_log(f"Заблокирован сервером до {event.get('unblock_at')}")
+                self._append_log(
+                    f"Заблокирован сервером до {format_nsk(self._state.unblock_at)} (НСК)"
+                )
             elif kind == "resumed":
                 self._state.status = "running"
                 self._state.unblock_at = None

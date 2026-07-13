@@ -154,11 +154,7 @@ table.stats-table th, table.stats-table td {
     font-size: 0.9rem;
 }
 
-table.files-table th {
-    background: var(--bg-alt);
-}
-
-table.stats-table th {
+table.files-table th, table.stats-table th {
     background: var(--bg-alt);
 }
 
@@ -177,11 +173,6 @@ table.stats-table th {
 .pagination button {
     background: white;
     color: var(--accent-dark);
-}
-
-.pagination button.current {
-    background: var(--accent);
-    color: white;
 }
 
 #selection-summary {
