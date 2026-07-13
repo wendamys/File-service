@@ -1,6 +1,6 @@
 import logging
 
-from logger import get_logger
+from app.logger import get_logger
 
 
 def test_returns_named_logger_with_info_level():

@@ -15,6 +15,14 @@ __pycache__/
 # Downloaded files
 downloads/
 
+# Local database
+*.db
+*.db-shm
+*.db-wal
+
+# Local config
+.env
+
 # OS files
 .DS_Store
 Thumbs.db
