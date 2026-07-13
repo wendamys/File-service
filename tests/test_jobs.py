@@ -112,6 +112,26 @@ def test_on_progress_names_received():
     assert state.names_received == 5
 
 
+def test_on_progress_names_received_tracks_already_downloaded_part():
+    manager, downloader, storage = make_manager()
+    manager._on_progress({"event": "names_received", "count": 5, "to_download": 1})
+    state = manager.status()
+
+    assert state.names_received == 5
+    assert state.to_download == 1
+    assert "4 уже скачано ранее" in state.log[-1]
+
+
+def test_on_progress_names_received_resets_batch_counter():
+    manager, downloader, storage = make_manager()
+    manager._on_progress({"event": "names_received", "count": 3, "to_download": 3})
+    manager._on_progress({"event": "downloaded", "count": 3, "total": 3})
+    manager._on_progress({"event": "names_received", "count": 4, "to_download": 4})
+
+    # Счётчик скачанного в порции не должен тянуться из предыдущей порции.
+    assert manager.status().downloaded == 0
+
+
 def test_on_progress_downloaded_updates_counters():
     manager, downloader, storage = make_manager()
     storage.count.return_value = 42

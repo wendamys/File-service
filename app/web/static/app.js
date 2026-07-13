@@ -95,11 +95,22 @@ async function updateStatus() {
     document.getElementById("started-at").textContent = state.started_at_nsk || "-";
     document.getElementById("names-received").textContent = state.names_received;
     document.getElementById("downloaded").textContent = state.downloaded;
-    document.getElementById("total-in-batch").textContent = state.names_received;
 
-    const percent = state.names_received > 0
-        ? Math.min(100, Math.round((state.downloaded / state.names_received) * 100))
-        : 0;
+    // Считаем прогресс от числа файлов, которые реально надо скачать: остальные
+    // из порции уже лежат на диске, их сервис только отмечает на сервере.
+    document.getElementById("total-in-batch").textContent = state.to_download;
+    const alreadyHave = state.names_received - state.to_download;
+    document.getElementById("already-have").textContent =
+        alreadyHave > 0 ? ` (${alreadyHave} уже были скачаны)` : "";
+
+    let percent;
+    if (state.names_received === 0) {
+        percent = 0;                    // порций ещё не было
+    } else if (state.to_download === 0) {
+        percent = 100;                  // вся порция уже была на диске
+    } else {
+        percent = Math.min(100, Math.round((state.downloaded / state.to_download) * 100));
+    }
     document.getElementById("progress-fill").style.width = `${percent}%`;
 
     const blockedLine = document.getElementById("blocked-line");

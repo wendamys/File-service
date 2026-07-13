@@ -44,6 +44,7 @@ def download_status(request: Request) -> JobStatusResponse:
         started_at=state.started_at,
         started_at_nsk=format_nsk(state.started_at),
         names_received=state.names_received,
+        to_download=state.to_download,
         downloaded=state.downloaded,
         total_downloaded=state.total_downloaded,
         unblock_at=state.unblock_at,

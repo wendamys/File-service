@@ -27,6 +27,9 @@ class JobState:
     status: JobStatus = "idle"
     started_at: datetime | None = None
     names_received: int = 0
+    # Сколько имён из последней порции реально надо скачать: остальные уже
+    # лежат на диске и будут только отмечены на сервере.
+    to_download: int = 0
     # Скачано в рамках последней порции, а не накопительно по всем.
     downloaded: int = 0
     # Всего файлов в БД: накопительно, по всем порциям и запускам.
@@ -97,8 +100,16 @@ class JobManager:
         kind = event.get("event")
         with self._lock:
             if kind == "names_received":
-                self._state.names_received = event["count"]
-                self._append_log(f"Получена порция из {event['count']} имён")
+                count = event["count"]
+                to_download = event.get("to_download", count)
+                self._state.names_received = count
+                self._state.to_download = to_download
+                self._state.downloaded = 0
+                already_have = count - to_download
+                message = f"Получена порция из {count} имён"
+                if already_have:
+                    message += f", из них {already_have} уже скачано ранее"
+                self._append_log(message)
             elif kind == "downloaded":
                 self._state.downloaded = event["count"]
                 self._state.total_downloaded = self.storage.count()

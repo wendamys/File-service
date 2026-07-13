@@ -49,6 +49,7 @@ class JobStatusResponse(BaseModel):
     started_at: datetime | None
     started_at_nsk: str
     names_received: int
+    to_download: int
     downloaded: int
     total_downloaded: int
     unblock_at: datetime | None

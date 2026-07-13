@@ -98,11 +98,17 @@ class Downloader:
                 self._emit({"event": "done"})
                 return
 
-            logger.info("Получена порция из %s имён", len(names))
-            self._emit({"event": "names_received", "count": len(names)})
-
             known = self.storage.known_names()
             to_download = [name for name in names if name not in known]
+
+            logger.info(
+                "Получена порция из %s имён, качать %s", len(names), len(to_download)
+            )
+            self._emit({
+                "event": "names_received",
+                "count": len(names),
+                "to_download": len(to_download),
+            })
 
             downloaded = 0
             for i in range(0, len(to_download), _DOWNLOAD_CHUNK_SIZE):

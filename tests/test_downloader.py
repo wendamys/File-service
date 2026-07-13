@@ -108,6 +108,21 @@ def test_already_known_files_are_not_downloaded_but_are_marked():
     storage.mark_files.assert_called_once_with(files)
 
 
+def test_names_received_event_reports_how_many_need_downloading():
+    files = ["f1", "f2", "f3", "f4"]
+    downloader, client, extractor, storage = make_downloader(
+        [files], known_names={"f2", "f3"}, on_progress=Mock()
+    )
+    client.download_files.side_effect = lambda names: fake_zip(names)
+
+    downloader.download_all()
+
+    events = [c.args[0] for c in downloader.on_progress.call_args_list]
+    names_received = next(e for e in events if e["event"] == "names_received")
+    assert names_received["count"] == 4
+    assert names_received["to_download"] == 2
+
+
 def test_all_known_batch_skips_download_but_still_marks():
     files = ["f1", "f2"]
     downloader, client, extractor, storage = make_downloader([files], known_names=set(files))
