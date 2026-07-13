@@ -1,0 +1,19 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Скачанные файлы и БД живут на томе, иначе прогресс терялся бы
+      # при каждой пересборке образа.
+      DOWNLOADS_DIR: /data/downloads
+      DB_URL: sqlite:////data/file_service.db
+    volumes:
+      - file-data:/data
+    restart: unless-stopped
+
+volumes:
+  file-data:

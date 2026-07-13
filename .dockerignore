@@ -1,0 +1,21 @@
+.git/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.vscode/
+
+# Данные прогонов — в образ не попадают, монтируются томом
+downloads/
+data/
+*.db
+*.db-shm
+*.db-wal
+
+.env
+tests/
+README.md
+Dockerfile
+.dockerignore
+docker-compose.yml

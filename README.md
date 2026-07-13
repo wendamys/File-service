@@ -18,7 +18,7 @@
 
 ## Стек
 
-Python 3.14 · FastAPI · Jinja2 + vanilla JS · SQLAlchemy 2.0 + SQLite · requests · pytest
+Python 3.14 · FastAPI · Jinja2 + vanilla JS · SQLAlchemy 2.0 + SQLite · requests · pytest · Docker
 
 ## Установка
 
@@ -36,6 +36,22 @@ uv run uvicorn app.main:app
 ```
 
 Открыть `http://127.0.0.1:8000`.
+
+## Запуск в Docker
+
+```bash
+cp .env.example .env    # задать свой CANDIDATE_ID
+docker compose up --build
+```
+
+Открыть `http://127.0.0.1:8000`.
+
+Скачанные файлы и БД лежат на именованном томе `file-data`, поэтому
+переживают пересборку образа. Начать каталог с нуля:
+
+```bash
+docker compose down -v
+```
 
 ## Тесты
 

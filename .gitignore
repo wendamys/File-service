@@ -20,6 +20,9 @@ downloads/
 *.db-shm
 *.db-wal
 
+# Docker volume data
+data/
+
 # Local config
 .env
 
